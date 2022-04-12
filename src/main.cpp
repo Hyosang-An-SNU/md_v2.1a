@@ -1,8 +1,8 @@
 // My Constants
-#define max_rpm_posi_cmd 500                       // 위치제어할 때의 rpm
+#define max_rpm_posi_cmd 800                       // 위치제어할 때의 rpm
 #define half_of_stiringwheel_rotation_range 1000    // 직접 측정해서 설정해줘야 하는 값
 #define INC_RELATIVE_POSITION 100                    // incremental command 할 때의 값
-#define MAX_STEERING_WHEEL_POSITION 700            // 스티어링휠 최대 위치 크기
+#define MAX_STEERING_WHEEL_POSITION 900            // 스티어링휠 최대 위치 크기
 
 ///v1.9d modifying code while PNT_TQ_OFF(PNT_BREKE) communication. it request PNT_MAIN_DATA and for 2s delay
 ///v1.9e adding code reset command after 2s

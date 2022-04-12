@@ -276,6 +276,12 @@ int main(int argc, char **argv)
                 PID_val = PID_MAX_VAL;
             }
 
+            // 처음 출발할 때 출렁거리는 현상 방지
+            if (target_speed > 0 && target_speed <= 1.7)
+            {
+                PID_val = 28;
+            }
+
             pid_val_msg.data = PID_val;
             accel_pid_val_pub.publish(pid_val_msg);
 
