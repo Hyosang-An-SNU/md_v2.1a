@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   serial
   std_msgs
   message_generation
+  tf
 )
 
 ## System dependencies are found with CMake's conventions
@@ -52,6 +53,7 @@ find_package(catkin REQUIRED COMPONENTS
    FILES
    vel_msg.msg
    monitor_msg.msg
+   encoder.msg
  )
 
 ## Generate services in the 'srv' folder
@@ -170,6 +172,12 @@ target_link_libraries(${PROJECT_NAME}_library ${catkin_LIBRARIES}) ## ${PROJECT_
 ## accel pid cpp
 add_executable(accel_pid src/accel_pid.cpp)
 target_link_libraries (accel_pid ${catkin_LIBRARIES})
+
+## encoder_to_tf cpp
+add_executable(encoder_to_tf src/encoder_to_tf.cpp)
+target_link_libraries(encoder_to_tf ${catkin_LIBRARIES})
+add_dependencies(encoder_to_tf ${catkin_EXPORTED_TARGETS})
+
 
 #############
 ## Install ##

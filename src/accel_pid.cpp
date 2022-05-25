@@ -9,7 +9,7 @@
 #define loop_hz 10
 
 #include <ros/ros.h>
-#include <ros_essentials_cpp/encoder.h>
+#include <md/encoder.h>
 #include <std_msgs/Int16.h>
 #include <std_msgs/String.h>
 #include <std_msgs/Empty.h>
@@ -36,9 +36,9 @@ float target_speed;
 float present_speed;
 
 // PID
-float Kp = 25. / static_cast<float>(MAX_SPEED);
-float Ki = 15;
-float Kd = 0.8;
+float Kp = 6;
+float Ki = 10;
+float Kd = 1.5;
 
 float e;
 float e_P;
@@ -56,13 +56,13 @@ bool easy_ctrl_flag = false;
 
 std::string fwd_rev_indicator;
 
-void left_encoder_callback(const ros_essentials_cpp::encoder::ConstPtr &msg)
+void left_encoder_callback(const md::encoder::ConstPtr &msg)
 {
     left_degree = msg->Degree;
     left_round = msg->Round;
 }
 
-void right_encoder_callback(const ros_essentials_cpp::encoder::ConstPtr &msg)
+void right_encoder_callback(const md::encoder::ConstPtr &msg)
 {
     right_degree = msg->Degree;
     right_round = msg->Round;
@@ -243,10 +243,33 @@ int main(int argc, char **argv)
             e_I = e_I + (Ki * e * t_delta);
 
             //적분항 누적 크기 제한
-            if (e_I > 255)
+            if (fwd == true)
             {
-                e_I = 255;
+                if (e_I<0)
+                {
+                    e_I = 0;
+                }
+
+                if (e_I>70)
+                {
+                    e_I = 70;
+                }
             }
+
+            else
+            {
+                if (e_I>0)
+                {
+                    e_I = 0;
+                }
+
+                if (e_I<-70)
+                {
+                    e_I = -70;
+                }
+            }
+
+
 
             e_D = Kd * (e - prev_e) / t_delta;
 
@@ -277,10 +300,17 @@ int main(int argc, char **argv)
             }
 
             // 처음 출발할 때 출렁거리는 현상 방지
-            if (target_speed > 0 && target_speed <= 1.7)
+            if (target_speed > 0 && PID_val <= 28)
             {
                 PID_val = 28;
             }
+
+            if (target_speed < 0 && PID_val <= 28)
+            {
+                PID_val = 24;
+            }
+
+
 
             pid_val_msg.data = PID_val;
             accel_pid_val_pub.publish(pid_val_msg);

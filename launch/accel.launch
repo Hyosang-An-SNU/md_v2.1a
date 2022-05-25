@@ -1,0 +1,17 @@
+<launch>
+
+    <node name="left_encoder" pkg="rosserial_python" type="serial_node.py">
+        <param name="port" type="string" value="/dev/ttyACM0"/>
+    </node>
+
+    <node name="right_encoder" pkg="rosserial_python" type="serial_node.py">
+        <param name="port" type="string" value="/dev/ttyACM1"/>
+    </node>
+
+    <node name="accel_arduino" pkg="rosserial_python" type="serial_node.py">
+        <param name="port" type="string" value="/dev/ttyUSB0"/>
+    </node>
+    
+    <node pkg="md" type="accel_pid" name="accel_pid_node" output="screen"/>
+
+</launch>
