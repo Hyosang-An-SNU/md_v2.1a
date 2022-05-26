@@ -178,6 +178,10 @@ add_executable(encoder_to_tf src/encoder_to_tf.cpp)
 target_link_libraries(encoder_to_tf ${catkin_LIBRARIES})
 add_dependencies(encoder_to_tf ${catkin_EXPORTED_TARGETS})
 
+## waypoint_follower cpp
+add_executable(waypoint_follower src/waypoint_follower.cpp)
+target_link_libraries(waypoint_follower ${catkin_LIBRARIES})
+add_dependencies(waypoint_follower ${catkin_EXPORTED_TARGETS})
 
 #############
 ## Install ##
