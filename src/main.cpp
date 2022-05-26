@@ -166,6 +166,7 @@ int main(int argc, char **argv)
 
     // ros::Publisher monitor_pub = nh.advertise<md::monitor_msg>("monitor_topic", 1); //Publisher declaration.
     ros::Publisher string_pub = nh.advertise<std_msgs::String>("string_com_topic", 1);
+    ros::Publisher steering_pos_pub = nh.advertise<std_msgs::Int32>("steering_pos_topic", 1);
 
     md::monitor_msg monitor; // monitor_msg declares message 'message' as message file.
 
@@ -243,6 +244,10 @@ int main(int argc, char **argv)
         ReceiveDataFromController();
         ROS_INFO("position : %d, current : %.1f A, RPM : %d, ", monitor_position, Com.current * 0.1, Com.rpm);
         cout << "TQ FREE STATUS : " << tq_free_status << endl << endl;
+
+        std_msgs::Int32 monitor_position_msg;
+        monitor_position_msg.data = monitor_position;
+        steering_pos_pub.publish(monitor_position_msg);
 
         // cout << "position :" << monitor_position << ", current : " <<  Com.current << ", RPM : " << Com.rpm << endl;
         // std::cout <<" monitor_position in main.cpp : "<< monitor_position << std::endl;
