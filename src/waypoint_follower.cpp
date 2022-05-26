@@ -7,12 +7,14 @@
 #include <tf/transform_broadcaster.h>
 
 #define DISTANCE_THRESHOLD 1 // (m)
-#define ANGLE_THRESHOLD 10 // (degree)
+#define ANGLE_THRESHOLD 180 // (degree)
 
 using namespace std;
 
 int encoderInfo[4] = {0, 0, 0, 0}; // left degree, round, right degree, round
 long encoderTotal[4] = {0, 0, 0, 0}; // left current, prev, right current, prev
+long initialEncoderTotal[2] = {0, 0};
+bool initialEncoderTotalSaved[2] = {false, false};
 ros::Time currentTime;
 ros::Time prevTime;
 float wheel_separation = 0.97;
@@ -25,19 +27,32 @@ bool encoderReceived[2] = {false, false}; // left, right
 int current_goal_idx = 1;
 int steering_pos[2] = {0, 0}; // current, prev
 
-float goal_poses[6][2] = { // t.x, t.y
+float goal_poses[14][2] = { // t.x, t.y
     {0, 0}, // t.x, t.y
-    {87.762, 4.838},
-    {87.762, 4.838},
-    {87.762, 4.838},
-    {94.701, 19.867},
-    {89.844, 64.920}
+    {86.9, 4.9},
+    {86.9, 4.9},
+    {96.0, 13.0},
+    {96.0, 13.0},
+    {90.0, 68.7},
+    {90.0, 68.7},
+    {86.0, 66.5},
+    {86.0, 66.5},
+    {90.0, 12.0},
+    {90.0, 12.0},
+    {85.0, 5.0},
+    {85.0, 5.0},
+    {0.0, 0.0}
 };
-int goal_steering_angles[6] = {0, 0, 720, 720, 0, 0}; // steering
-int translate_section_idx[] = {1,3,5}; 
-int rotate_section_idx[] = {2,4}; 
+// int goal_steering_angles[6] = {0, 0, 720, 720, 0, 0}; // steering
+// int translate_section_idx[] = {1,3,5}; 
+// int rotate_section_idx[] = {2,4};
+int goal_steering_angles[14] = {0, 0, 720, 720, 0, 0, 1440, 1440, 0, 0, -720, -720, 0, 0}; // steering
+int translate_section_idx[7] = {1,3,5,7,9,11,13}; 
+int rotate_section_idx[6] = {2,4,6,8,10,12}; 
 ros::Publisher accel_pub;
 ros::Publisher steering_pub;
+
+bool isAutoControlMode = false;
 
 double constrainAngle (double angle) { // constrain the angle between -pi to pi
     int quotient;
@@ -119,7 +134,11 @@ void imuCallback(const sensor_msgs::ImuConstPtr& msg) {
 void leftEncoderCallback(const md::encoderConstPtr& msg) {
     encoderInfo[0] = msg->Degree;
     encoderInfo[1] = msg->Round;
-    encoderTotal[0] = msg->Round * 360 + msg->Degree;
+    if(!initialEncoderTotalSaved[0]) {
+        initialEncoderTotal[0] = msg->Round * 360 + msg->Degree;
+        initialEncoderTotalSaved[0] = true;
+    }
+    encoderTotal[0] = msg->Round * 360 + msg->Degree - initialEncoderTotal[0];
     if(!encoderReceived[0]) {
         encoderTotal[1] = encoderTotal[0];
         encoderReceived[0] = true;
@@ -129,7 +148,11 @@ void leftEncoderCallback(const md::encoderConstPtr& msg) {
 void rightEncoderCallback(const md::encoderConstPtr& msg) {
     encoderInfo[2] = msg->Degree;
     encoderInfo[3] = msg->Round;
-    encoderTotal[2] = msg->Round * 360 + msg->Degree;
+    if(!initialEncoderTotalSaved[1]) {
+        initialEncoderTotal[1] = msg->Round * 360 + msg->Degree;
+        initialEncoderTotalSaved[1] = true;
+    }
+    encoderTotal[2] = msg->Round * 360 + msg->Degree - initialEncoderTotal[1];
     if(!encoderReceived[1]) {
         encoderTotal[3] = encoderTotal[2];
         encoderReceived[1] = true;
@@ -169,9 +192,10 @@ bool checkCarStopped() {
 bool checkReachedThreshold()
 {
     calculate_tf();
-    int* find_trans = std::find(translate_section_idx,translate_section_idx+3,current_goal_idx);
-    int* find_rot = std::find(rotate_section_idx,rotate_section_idx+2,current_goal_idx);
-    if(find_trans != translate_section_idx+3) { // translate section
+    int* find_trans = std::find(translate_section_idx,translate_section_idx+7,current_goal_idx);
+    int* find_rot = std::find(rotate_section_idx,rotate_section_idx+6,current_goal_idx);
+    // if(find_trans != translate_section_idx+3) { // translate section
+    if(find_trans != translate_section_idx+7) { // translate section
         float* current_goal_pose = goal_poses[current_goal_idx];
         float distance = sqrt(pow(current_goal_pose[0] - translation_x, 2) + pow(current_goal_pose[1] - translation_y, 2));
         if(distance <= DISTANCE_THRESHOLD)
@@ -179,27 +203,39 @@ bool checkReachedThreshold()
             std_msgs::String accel_msg;
             accel_msg.data = "backward";
             accel_pub.publish(accel_msg);
+            std::cout << "backward" << std::endl;
             return true;
         }
         else
         {
             std_msgs::String accel_msg;
             accel_msg.data = "forward";
+            std::cout << "forward" << std::endl;
             accel_pub.publish(accel_msg);
             return false;
         }
-    } else if(find_rot != rotate_section_idx+2) { // rotate section
+    // } else if(find_rot != rotate_section_idx+2) { // rotate section
+    } else if(find_rot != rotate_section_idx+6) { // rotate section
         int current_goal_angle = goal_steering_angles[current_goal_idx];
         int angleDiff = std::abs(current_goal_angle - steering_pos[0]);
         if(angleDiff <= ANGLE_THRESHOLD)
         {
-            std_msgs::Int32 steering_msg;
-            steering_msg.data = 0;
-            steering_pub.publish(steering_msg);
+            // std_msgs::Int32 steering_msg;
+            // steering_msg.data = 0;
+            // steering_pub.publish(steering_msg);
             return true;
         } else {
             std_msgs::Int32 steering_msg;
-            steering_msg.data = 720;
+            if(current_goal_idx == rotate_section_idx[0]) {
+                steering_msg.data = 720;
+            } else if (current_goal_idx == rotate_section_idx[2]) {
+                steering_msg.data = 1440;
+            } else if (current_goal_idx == rotate_section_idx[4]) {
+                steering_msg.data = -720;
+            }  else {
+                steering_msg.data = 0;
+            }
+
             steering_pub.publish(steering_msg);
             return false;
         }
@@ -257,12 +293,18 @@ int main(int argc, char **argv)
     {
         if(encoderReceived[0] && encoderReceived[1]) {
             // goalCheck();
-            bool isReached = checkReachedThreshold();
-            bool isStopped = checkCarStopped();
-            if(isReached && isStopped) {
-                current_goal_idx += 1;
+            if(isAutoControlMode) {
+                bool isReached = checkReachedThreshold();
+                bool isStopped = checkCarStopped();
+                // if(isReached && isStopped && current_goal_idx < 5) {
+                if(isReached && isStopped && current_goal_idx < 13) {
+                    current_goal_idx += 1;
+                }
+                float* current_goal_pose = goal_poses[current_goal_idx];
+                std::cout << current_goal_idx << " (" << current_goal_pose[0] << ", " << current_goal_pose[1] << ") : " << translation_x << " " << translation_y << " " << steering_pos[0] << std::endl;               
+            } else {
+                std::cout << translation_x << " " << translation_y << " " << steering_pos[0] << std::endl;  
             }
-            std::cout << current_goal_idx << std::endl;
         }
         // bool isReached = checkReachedThreshold();
         // if(isReached) {
