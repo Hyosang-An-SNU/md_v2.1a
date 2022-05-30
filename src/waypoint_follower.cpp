@@ -35,14 +35,14 @@ float goal_poses[6][2] = { // t.x, t.y
     {30.8857, 12.0816},
     {30.8857, 12.0816},
     {31.139, 22.868}
-    // {90.0, 68.7},
-    // {86.0, 66.5},
-    // {86.0, 66.5},
-    // {90.0, 12.0},
-    // {90.0, 12.0},
-    // {85.0, 5.0},
-    // {85.0, 5.0},
-    // {0.0, 0.0}
+};
+float reached_poses[6][2] = {
+    {0, 0},
+    {0, 0},
+    {0, 0},
+    {0, 0},
+    {0, 0},
+    {0, 0}
 };
 int goal_steering_angles[6] = {0, 0, 362, 362, 0, 0}; // steering
 int translate_section_idx[3] = {1,3,5}; 
@@ -199,8 +199,26 @@ bool checkReachedThreshold()
     // int* find_rot = std::find(rotate_section_idx,rotate_section_idx+6,current_goal_idx);
     if(find_trans != translate_section_idx+3) { // translate section
     // if(find_trans != translate_section_idx+7) { // translate section
-        float* current_goal_pose = goal_poses[current_goal_idx];
-        float distance = sqrt(pow(current_goal_pose[0] - translation_x, 2) + pow(current_goal_pose[1] - translation_y, 2));
+        float current_goal_pose[2];
+        // float distance = sqrt(pow(current_goal_pose[0] - translation_x, 2) + pow(current_goal_pose[1] - translation_y, 2));
+        float prev_goal_pose[2];
+        float prev_reached_pose[2];
+        int prev_goal_idx;
+        if(current_goal_idx > 0) {
+            prev_goal_idx = current_goal_idx - 1;
+        } else { // block segmentation error
+            prev_goal_idx = 0;
+        }
+        float target_translation[2];
+        for(int i=0; i<2; i++) {
+            current_goal_pose[i] = goal_poses[current_goal_idx][i];
+            prev_goal_pose[i] = goal_poses[prev_goal_idx][i];
+            prev_reached_pose[i] = reached_poses[prev_goal_idx][i];
+            target_translation[i] = current_goal_pose[i] - prev_goal_pose[i];
+        }
+        double current_translation[2] = {translation_x - prev_reached_pose[0], translation_y - prev_reached_pose[1]};
+        double distance = sqrt(pow(target_translation[0] - current_translation[0], 2) + pow(target_translation[1] - current_translation[1], 2));
+        std::cout << distance << std::endl;
         if(distance <= DISTANCE_THRESHOLD)
         {
             std_msgs::String accel_msg;
@@ -302,9 +320,13 @@ int main(int argc, char **argv)
             if(isAutoControlMode) {
                 bool isStopped = checkCarStopped();
                 bool isReached = checkReachedThreshold();
-                if(isReached && isStopped && current_goal_idx < 5) {
-                // if(isReached && isStopped && current_goal_idx < 13) {
-                    current_goal_idx += 1;
+                if(isReached && isStopped) {
+                    reached_poses[current_goal_idx][0] = translation_x;
+                    reached_poses[current_goal_idx][1] = translation_y;
+                    if(current_goal_idx < 5) {
+                    // if(isReached && isStopped && current_goal_idx < 13) {
+                        current_goal_idx += 1;
+                    }
                 }
                 float* current_goal_pose = goal_poses[current_goal_idx];
                 // std::cout << isStopped << "\t" << steering_pos[0] << "\t" << steering_pos[1] << "\t" << encoderTotal[0] << "\t" << encoderTotal[1] << "\t" << encoderTotal[2] << "\t" << encoderTotal[3] << std::endl;
