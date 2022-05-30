@@ -6,8 +6,8 @@
 #include "md/encoder.h"
 #include <tf/transform_broadcaster.h>
 
-#define DISTANCE_THRESHOLD 1 // (m)
-#define ANGLE_THRESHOLD 180 // (degree)
+#define DISTANCE_THRESHOLD 2.0 // (m)
+#define ANGLE_THRESHOLD 25 // (degree)
 
 using namespace std;
 
@@ -27,32 +27,33 @@ bool encoderReceived[2] = {false, false}; // left, right
 int current_goal_idx = 1;
 int steering_pos[2] = {0, 0}; // current, prev
 
-float goal_poses[14][2] = { // t.x, t.y
+// float goal_poses[14][2] = { // t.x, t.y
+float goal_poses[6][2] = { // t.x, t.y
     {0, 0}, // t.x, t.y
-    {86.9, 4.9},
-    {86.9, 4.9},
-    {96.0, 13.0},
-    {96.0, 13.0},
-    {90.0, 68.7},
-    {90.0, 68.7},
-    {86.0, 66.5},
-    {86.0, 66.5},
-    {90.0, 12.0},
-    {90.0, 12.0},
-    {85.0, 5.0},
-    {85.0, 5.0},
-    {0.0, 0.0}
+    {20.6499, 1.42222},
+    {20.6499, 1.42222},
+    {30.8857, 12.0816},
+    {30.8857, 12.0816},
+    {31.139, 22.868}
+    // {90.0, 68.7},
+    // {86.0, 66.5},
+    // {86.0, 66.5},
+    // {90.0, 12.0},
+    // {90.0, 12.0},
+    // {85.0, 5.0},
+    // {85.0, 5.0},
+    // {0.0, 0.0}
 };
-// int goal_steering_angles[6] = {0, 0, 720, 720, 0, 0}; // steering
-// int translate_section_idx[] = {1,3,5}; 
-// int rotate_section_idx[] = {2,4};
-int goal_steering_angles[14] = {0, 0, 720, 720, 0, 0, 1440, 1440, 0, 0, -720, -720, 0, 0}; // steering
-int translate_section_idx[7] = {1,3,5,7,9,11,13}; 
-int rotate_section_idx[6] = {2,4,6,8,10,12}; 
+int goal_steering_angles[6] = {0, 0, 362, 362, 0, 0}; // steering
+int translate_section_idx[3] = {1,3,5}; 
+int rotate_section_idx[2] = {2,4};
+// int goal_steering_angles[14] = {0, 0, 720, 720, 0, 0, 1440, 1440, 0, 0, -720, -720, 0, 0}; // steering
+// int translate_section_idx[7] = {1,3,5,7,9,11,13}; 
+// int rotate_section_idx[6] = {2,4,6,8,10,12}; 
 ros::Publisher accel_pub;
 ros::Publisher steering_pub;
 
-bool isAutoControlMode = false;
+bool isAutoControlMode = true;
 
 double constrainAngle (double angle) { // constrain the angle between -pi to pi
     int quotient;
@@ -160,7 +161,7 @@ void rightEncoderCallback(const md::encoderConstPtr& msg) {
 }
 
 void calculate_tf() {
-    // std::cout << encoderTotal[0] << " " << encoderTotal[1] << " " << encoderTotal[2] << " " << encoderTotal[3] << " " << std::endl;
+    // std::cout << encoderTotal[0] << "\t" << encoderTotal[1] << "\t" << encoderTotal[2] << "\t" << encoderTotal[3] << "\t" << std::endl;
     double left_distance = one_rotation_distance * ((double)(encoderTotal[0] - encoderTotal[1]) / 360.0);
     double right_distance = one_rotation_distance * ((double)(encoderTotal[2] - encoderTotal[3]) / 360.0);
     double average_distance = (left_distance + right_distance) / 2.0;
@@ -192,10 +193,12 @@ bool checkCarStopped() {
 bool checkReachedThreshold()
 {
     calculate_tf();
-    int* find_trans = std::find(translate_section_idx,translate_section_idx+7,current_goal_idx);
-    int* find_rot = std::find(rotate_section_idx,rotate_section_idx+6,current_goal_idx);
-    // if(find_trans != translate_section_idx+3) { // translate section
-    if(find_trans != translate_section_idx+7) { // translate section
+    int* find_trans = std::find(translate_section_idx,translate_section_idx+3,current_goal_idx);
+    int* find_rot = std::find(rotate_section_idx,rotate_section_idx+2,current_goal_idx);
+    // int* find_trans = std::find(translate_section_idx,translate_section_idx+7,current_goal_idx);
+    // int* find_rot = std::find(rotate_section_idx,rotate_section_idx+6,current_goal_idx);
+    if(find_trans != translate_section_idx+3) { // translate section
+    // if(find_trans != translate_section_idx+7) { // translate section
         float* current_goal_pose = goal_poses[current_goal_idx];
         float distance = sqrt(pow(current_goal_pose[0] - translation_x, 2) + pow(current_goal_pose[1] - translation_y, 2));
         if(distance <= DISTANCE_THRESHOLD)
@@ -214,8 +217,8 @@ bool checkReachedThreshold()
             accel_pub.publish(accel_msg);
             return false;
         }
-    // } else if(find_rot != rotate_section_idx+2) { // rotate section
-    } else if(find_rot != rotate_section_idx+6) { // rotate section
+    } else if(find_rot != rotate_section_idx+2) { // rotate section
+    // } else if(find_rot != rotate_section_idx+6) { // rotate section
         int current_goal_angle = goal_steering_angles[current_goal_idx];
         int angleDiff = std::abs(current_goal_angle - steering_pos[0]);
         if(angleDiff <= ANGLE_THRESHOLD)
@@ -227,12 +230,15 @@ bool checkReachedThreshold()
         } else {
             std_msgs::Int32 steering_msg;
             if(current_goal_idx == rotate_section_idx[0]) {
-                steering_msg.data = 720;
-            } else if (current_goal_idx == rotate_section_idx[2]) {
-                steering_msg.data = 1440;
-            } else if (current_goal_idx == rotate_section_idx[4]) {
-                steering_msg.data = -720;
-            }  else {
+                // steering_msg.data = 720;
+                steering_msg.data = 362;
+            }
+            // else if (current_goal_idx == rotate_section_idx[2]) {
+            //     steering_msg.data = 1440;
+            // } else if (current_goal_idx == rotate_section_idx[4]) {
+            //     steering_msg.data = -720;
+            // }
+            else {
                 steering_msg.data = 0;
             }
 
@@ -245,13 +251,13 @@ bool checkReachedThreshold()
 void goalCheck() {
     calculate_tf();
     string printed_message = "";
-    // printed_message += to_string(translation_x) + " " + to_string(translation_y) + " " + to_string(yaw) + " ";
+    // printed_message += to_string(translation_x) + "\t" + to_string(translation_y) + "\t" + to_string(yaw) + "\t";
     for(int i=0; i<4; i++) {
         float* goal_pose = goal_poses[i];
         double distance_diff = sqrt(pow(goal_pose[0] - translation_x, 2) + pow(goal_pose[1] - translation_y, 2));
         // double yaw_diff = goal_pose[2] - yaw;
         // yaw_diff = constrainAngle(yaw_diff);
-        // printed_message += to_string(i) + ": " + to_string(distance_diff) + " " + to_string(yaw_diff) + ", ";
+        // printed_message += to_string(i) + ": " + to_string(distance_diff) + "\t" + to_string(yaw_diff) + ", ";
         if(distance_diff < DISTANCE_THRESHOLD) {
             printed_message += to_string(i) + ": " + to_string(distance_diff) + ", ";
         }
@@ -294,16 +300,18 @@ int main(int argc, char **argv)
         if(encoderReceived[0] && encoderReceived[1]) {
             // goalCheck();
             if(isAutoControlMode) {
-                bool isReached = checkReachedThreshold();
                 bool isStopped = checkCarStopped();
-                // if(isReached && isStopped && current_goal_idx < 5) {
-                if(isReached && isStopped && current_goal_idx < 13) {
+                bool isReached = checkReachedThreshold();
+                if(isReached && isStopped && current_goal_idx < 5) {
+                // if(isReached && isStopped && current_goal_idx < 13) {
                     current_goal_idx += 1;
                 }
                 float* current_goal_pose = goal_poses[current_goal_idx];
-                std::cout << current_goal_idx << " (" << current_goal_pose[0] << ", " << current_goal_pose[1] << ") : " << translation_x << " " << translation_y << " " << steering_pos[0] << std::endl;               
+                // std::cout << isStopped << "\t" << steering_pos[0] << "\t" << steering_pos[1] << "\t" << encoderTotal[0] << "\t" << encoderTotal[1] << "\t" << encoderTotal[2] << "\t" << encoderTotal[3] << std::endl;
+                std::cout << "yaw(" << initialYaw << "\t" << yaw << ")\tgoal:\t" << current_goal_idx << "\t(" << current_goal_pose[0] << ", " << current_goal_pose[1] << ")\t:\t" << translation_x << "\t" << translation_y << "\t" << steering_pos[0] << std::endl;               
             } else {
-                std::cout << translation_x << " " << translation_y << " " << steering_pos[0] << std::endl;  
+                calculate_tf();
+                std::cout << translation_x << "\t" << translation_y << "\t" << steering_pos[0] << std::endl;  
             }
         }
         // bool isReached = checkReachedThreshold();
